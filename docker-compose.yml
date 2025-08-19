@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - CLAUDE_MODEL_ID=${CLAUDE_MODEL_ID}
+      - BACKEND_HOST=0.0.0.0
+      - BACKEND_PORT=8000
+    env_file:
+      - .env
+    networks:
+      - chatbot-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend
+    environment:
+      - BACKEND_URL=http://backend:8000
+    networks:
+      - chatbot-network
+
+networks:
+  chatbot-network:
+    driver: bridge
