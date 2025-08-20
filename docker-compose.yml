@@ -1,21 +1,19 @@
-version: '3.8'
-
 services:
   backend:
-    build: 
+    build:
       context: .
       dockerfile: backend/Dockerfile
     ports:
-      - "8000:8000"
+      - "8080:8000"
+    env_file:
+      - .env
     environment:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION}
-      - CLAUDE_MODEL_ID=${CLAUDE_MODEL_ID}
+      - AWS_REGION=us-east-1
+      - CLAUDE_MODEL_ID=us.anthropic.claude-3-7-sonnet-20250219-v1:0
       - BACKEND_HOST=0.0.0.0
       - BACKEND_PORT=8000
-    env_file:
-      - .env
     networks:
       - chatbot-network
 
@@ -24,7 +22,7 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     ports:
-      - "8501:8501"
+      - "8502:8501"
     depends_on:
       - backend
     environment:

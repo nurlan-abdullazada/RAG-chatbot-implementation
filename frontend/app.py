@@ -29,10 +29,12 @@ def call_backend_api(message: str, use_rag: bool = True):
         payload = {
             "message": message,
             "conversation_history": st.session_state.conversation_history,
-            "use_rag": use_rag
+            "use_rag": use_rag,
+            "temperature": 0.7
         }
         
-        response = requests.post(f"{BACKEND_URL}/test", timeout=30)
+        # Always use /chat endpoint (not /rag/chat)
+        response = requests.post(f"{BACKEND_URL}/chat", json=payload, timeout=30)
         
         if response.status_code == 200:
             return response.json()
@@ -47,6 +49,7 @@ def call_backend_api(message: str, use_rag: bool = True):
     except Exception as e:
         st.error(f"Error: {str(e)}")
         return None
+
 
 def add_message(role: str, content: str):
     """Add message to chat history"""

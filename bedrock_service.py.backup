@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Dict, Iterator
 from config import config
 from models import ChatMessage
-
+from knowledge_base_service import LocalKnowledgeBaseService
 
 class BedrockService:
     def __init__(self):
@@ -15,9 +15,40 @@ class BedrockService:
             aws_secret_access_key=config.AWS_SECRET_ACCESS_KEY,
         )
         self.model_id = config.CLAUDE_MODEL_ID
+	
+	# Initialize local knowledge base
+        self.knowledge_base = LocalKnowledgeBaseService()
+
+    def rag_chat_completion(self, message: str, conversation_history: List[ChatMessage] = None, temperature: float = None, use_local_kb: bool = True) -> str:
+    """Get response using RAG with local knowledge base"""
     
+    # Search local knowledge base for relevant context
+    context_docs = []
+    if use_local_kb:
+        search_results = self.knowledge_base.search(message, n_results=3)
+        context_docs = [doc["content"] for doc in search_results]
+    
+    # Build context string
+    context = "\n\n".join(context_docs) if context_docs else ""
+    
+    # Create enhanced prompt with context
+    if context:
+        enhanced_message = f"""Based on the following context information, please answer the user's question. If the context doesn't contain relevant information, you can use your general knowledge.
+
+Context:
+{context}
+
+User Question: {message}
+
+Please provide a helpful and accurate response:"""
+    else:
+        enhanced_message = message
+    
+    # Use the regular chat completion with enhanced prompt
+    return self.chat_completion(enhanced_message, conversation_history, temperature)
+
     def create_body_json(self, messages: List[Dict], system: str = None, temperature: float = None):
-        """Create request body for Claude API"""
+        """Create request body for Claude API (from your notebook)"""
         body_dict = {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": config.MAX_TOKENS,
@@ -69,36 +100,8 @@ class BedrockService:
         response_body = json.loads(response['body'].read().decode('utf-8'))
         return response_body['content'][0]['text']
     
-#    def rag_chat_completion(self, message: str, conversation_history: List[ChatMessage] = None, temperature: float = None, use_local_kb: bool = True) -> str:
-#       """Get response using RAG with local knowledge base"""
-        
-        # Search local knowledge base for relevant context
-        context_docs = []
-        if use_local_kb:
-            search_results = self.knowledge_base.search(message, n_results=3)
-            context_docs = [doc["content"] for doc in search_results]
-        
-        # Build context string
-        context = "\n\n".join(context_docs) if context_docs else ""
-        
-        # Create enhanced prompt with context
-        if context:
-            enhanced_message = f"""Based on the following context information, please answer the user's question. If the context doesn't contain relevant information, you can use your general knowledge.
-
-Context:
-{context}
-
-User Question: {message}
-
-Please provide a helpful and accurate response:"""
-        else:
-            enhanced_message = message
-        
-        # Use the regular chat completion with enhanced prompt
-        return self.chat_completion(enhanced_message, conversation_history, temperature)
-    
     def chat_completion_stream(self, message: str, conversation_history: List[ChatMessage] = None, system: str = None, temperature: float = None) -> Iterator[str]:
-        """Get streaming response from Claude"""
+        """Get streaming response from Claude (from your notebook)"""
         messages = []
         
         # Add conversation history
@@ -122,7 +125,7 @@ Please provide a helpful and accurate response:"""
             body=body_json
         )
         
-        # Process stream
+        # Process stream (from your notebook)
         stream_body = stream.get("body")
         for event in stream_body:
             stream_chunk = event.get("chunk")

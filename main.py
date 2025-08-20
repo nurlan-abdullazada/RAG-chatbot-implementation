@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from contextlib import asynccontextmanager
 import json
 import uuid
 from datetime import datetime
@@ -30,15 +31,12 @@ app.add_middleware(
 # Initialize Bedrock service
 bedrock_service = BedrockService()
 
-@app.on_event("startup")
-async def startup_event():
-    """Validate configuration on startup"""
-    try:
-        config.validate_config()
-        print("✅ AWS configuration validated successfully")
-    except ValueError as e:
-        print(f"❌ Configuration error: {e}")
-        raise
+# Simple startup validation
+try:
+    config.validate_config()
+    print("✅ AWS configuration validated successfully")
+except ValueError as e:
+    print(f"❌ Configuration error: {e}")
 
 @app.get("/")
 async def root():
@@ -48,6 +46,55 @@ async def root():
         "status": "healthy",
         "timestamp": datetime.now().isoformat()
     }
+
+
+#@app.post("/rag/chat", response_model=ChatResponse)
+#async def rag_chat_completion(request: ChatRequest):
+#    """RAG-enabled chat endpoint using local knowledge base"""
+    try:
+        # Get response using RAG
+        response_text = bedrock_service.rag_chat_completion(
+            message=request.message,
+            conversation_history=request.conversation_history,
+            temperature=request.temperature,
+            use_local_kb=True
+        )
+        
+        # Create response
+        chat_response = ChatResponse(
+            response=response_text,
+            message_id=str(uuid.uuid4()),
+            timestamp=datetime.now(),
+            model_used=f"{config.CLAUDE_MODEL_ID} + Local KB"
+        )
+        
+        return chat_response
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating RAG response: {str(e)}")
+
+#@app.get("/knowledge-base/info")
+#async def get_kb_info():
+    """Get knowledge base information"""
+    try:
+        info = bedrock_service.knowledge_base.get_collection_info()
+        return info
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting KB info: {str(e)}")
+
+#@app.post("/knowledge-base/search")
+#async def search_knowledge_base(request: dict):
+    """Search the local knowledge base"""
+    try:
+        query = request.get("query", "")
+        n_results = request.get("n_results", 3)
+        
+        results = bedrock_service.knowledge_base.search(query, n_results)
+        return {"results": results}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error searching KB: {str(e)}")
+
 
 @app.get("/health")
 async def health_check():
@@ -137,8 +184,8 @@ async def test_endpoint():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        app,  # Use app directly, not "main:app"
-        host="127.0.0.1",  # Use localhost
+        app,
+        host="0.0.0.0",
         port=8000,
-        reload=True
+        reload=False
     )
